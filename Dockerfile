@@ -29,8 +29,10 @@ COPY --from=frontend /build/frontend/dist /frontend/dist
 ENV DATABASE_URL=sqlite:////data/app.db
 ENV STORAGE_DIR=/data/storage
 ENV PUBLIC_BASE_URL=http://localhost:8000
+ENV PORT=8000
 VOLUME /data
 EXPOSE 8000
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Bind to $PORT (Render injects it). Alembic migrations are best-effort;
+# the app also creates missing tables on startup.
+CMD ["sh", "-c", "alembic upgrade head || true; uvicorn app.main:app --host 0.0.0.0 --port \"$PORT\""]
