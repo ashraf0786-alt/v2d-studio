@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
-# Build a signed WebView APK for the V2D Studio web app.
-# Usage: APP_URL=https://your-public-host ./android/build.sh
+# Build a signed WebView APK using native aapt for a valid AndroidManifest.xml.
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-SDK="${ANDROID_SDK:-/opt/android-sdk}"
-BT="$SDK/android-14"          # d8 / apksigner / zipalign (Java tools)
-JAR="$SDK/android-35/android.jar"
-APP_URL="${APP_URL:-https://example.com}"
-APP_LABEL="${APP_LABEL:-V2D Studio}"
-PACKAGE="com.v2dstudio.app"
+BT="/opt/android-sdk/android-14"          # d8 / apksigner (Java tools)
+JAR="${ANDROID_JAR:-/tmp/opencode/api29/android-10/android.jar}"
+AAPT="$(command -v aapt || echo aapt)"
+LABEL="${APP_LABEL:-V2D Studio}"
 
 [ -f "$JAR" ] || { echo "Missing android.jar at $JAR"; exit 1; }
-[ -f "$BT/d8" ] || { echo "Missing d8 at $BT"; exit 1; }
+command -v "$AAPT" >/dev/null || { echo "Missing aapt"; exit 1; }
 
 rm -rf "$DIR/build"
-mkdir -p "$DIR/build/classes"
+mkdir -p "$DIR/build/classes" "$DIR/build/gen"
 
-echo "==> generating binary AndroidManifest.xml"
-python3 "$DIR/build_axml.py" "$DIR/build/AndroidManifest.xml" "$PACKAGE" "$APP_LABEL"
+echo "==> generating binary AndroidManifest.xml with aapt"
+"$AAPT" package -f -m -J "$DIR/build/gen" -M "$DIR/AndroidManifest.xml" \
+  -S "$DIR/res" -I "$JAR" -F "$DIR/build/base.apk"
 
 echo "==> compiling Java"
 javac -source 8 -target 8 -nowarn -bootclasspath "$JAR" \
@@ -29,27 +27,27 @@ echo "==> dexing"
 "$BT/d8" --lib "$JAR" --min-api 21 --output "$DIR/build" \
   "$DIR/build/classes/com/v2dstudio/app/MainActivity.class"
 
-echo "==> packaging unsigned APK"
+echo "==> packaging (aligned)"
 python3 - "$DIR" <<'PY'
-import sys, zipfile, pathlib
-d = pathlib.Path(sys.argv[1])
-unsigned = d / "build" / "unsigned.apk"
-with zipfile.ZipFile(unsigned, "w", zipfile.ZIP_DEFLATED) as z:
-    z.write(d / "build" / "AndroidManifest.xml", "AndroidManifest.xml")
-    z.write(d / "build" / "classes.dex", "classes.dex")
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from repack import repack
+d = Path(sys.argv[1])
+repack(d / "build" / "base.apk", d / "build" / "unsigned.apk",
+       {"classes.dex": d / "build" / "classes.dex"})
 PY
 
-echo "==> signing"
-# zipalign in the local SDK is x86-only; all entries here are deflated, so
-# alignment is not required for installability.
+echo "==> signing (v1 + v2 + v3)"
 if [ ! -f "$DIR/debug.jks" ]; then
   keytool -genkeypair -keystore "$DIR/debug.jks" -storepass android -keypass android \
     -alias v2d -keyalg RSA -keysize 2048 -validity 10000 \
-    -dname "CN=V2D Studio, OU=Mobile, O=V2D Studio, L=NA, S=NA, C=US" >/dev/null 2>&1
+    -dname "CN=V2D Studio, OU=Mobile, O=V2D Studio, L=NA, ST=NA, C=US" >/dev/null 2>&1
 fi
-"$BT/apksigner" sign --ks "$DIR/debug.jks" --ks-pass pass:android --key-pass pass:android \
+"$BT/apksigner" sign --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+  --ks "$DIR/debug.jks" --ks-pass pass:android --key-pass pass:android \
   --out "$DIR/V2DStudio.apk" "$DIR/build/unsigned.apk"
-"$BT/apksigner" verify --print-certs "$DIR/V2DStudio.apk" | head -6
+"$BT/apksigner" verify --verbose --print-certs "$DIR/V2DStudio.apk" | head -14
 
 echo "APK: $DIR/V2DStudio.apk"
 ls -lh "$DIR/V2DStudio.apk"

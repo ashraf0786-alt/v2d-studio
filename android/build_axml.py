@@ -1,8 +1,12 @@
 """Generate a binary AndroidManifest.xml without aapt (pure Python).
 
 Supports the small subset needed for a WebView launcher: namespace, elements,
-plain and android-namespaced string/int attributes. No compiled resources are
-needed because the label and URL are plain strings, not @resources.
+plain and android-namespaced string/int/bool attributes. No compiled resources
+are needed because the label is a plain string, not an @resource reference.
+
+Booleans MUST use TYPE_INT_BOOLEAN — encoding them as strings makes Android's
+package parser throw INSTALL_PARSE_FAILED_MANIFEST_MALFORMED ("problem while
+parsing the package"). <uses-sdk> is also required on modern Android.
 """
 from __future__ import annotations
 
@@ -19,6 +23,7 @@ RES_XML_END_ELEMENT_TYPE = 0x0103
 
 TYPE_STRING = 0x03
 TYPE_INT_DEC = 0x10
+TYPE_INT_BOOLEAN = 0x12
 NO_ENTRY = 0xFFFFFFFF
 ANDROID_NS = "http://schemas.android.com/apk/res/android"
 
@@ -36,6 +41,7 @@ class StringPool:
 
     def build(self) -> bytes:
         offsets, data = [], bytearray()
+
         def enc_len(n: int) -> bytes:
             # Android UTF-8 string pool uses 1-byte lengths below 0x80.
             return bytes([n]) if n < 0x80 else bytes([0x80 | (n >> 8), n & 0xFF])
@@ -61,7 +67,10 @@ def _chunk(ctype: int, body: bytes) -> bytes:
     return struct.pack("<HHIII", ctype, 16, 16 + len(body), 1, NO_ENTRY) + body
 
 
-def _typed(value: str | int, pool: StringPool) -> bytes:
+def _typed(value: str | int | bool, pool: StringPool) -> bytes:
+    # bool must be checked before int (bool is a subclass of int in Python).
+    if isinstance(value, bool):
+        return struct.pack("<HBBI", 8, 0, TYPE_INT_BOOLEAN, 0xFFFFFFFF if value else 0)
     if isinstance(value, int):
         return struct.pack("<HBBI", 8, 0, TYPE_INT_DEC, value)
     idx = pool.add(value)
@@ -69,7 +78,7 @@ def _typed(value: str | int, pool: StringPool) -> bytes:
 
 
 def start_element(pool: StringPool, tag: str,
-                  android_attrs: list[tuple[str, str | int]],
+                  android_attrs: list[tuple[str, str | int | bool]],
                   plain_attrs: list[tuple[str, str]] | None = None) -> bytes:
     name_i = pool.add(tag)
     ab = b""
@@ -102,13 +111,16 @@ def build(package: str, label: str) -> bytes:
 
     body += elem("manifest", [("versionCode", 1), ("versionName", "1.0")],
                  [("package", package)])
+    # Required on modern Android — without it some installers reject the package.
+    body += elem("uses-sdk", [("minSdkVersion", 21), ("targetSdkVersion", 35)])
+    body += end_element(pool, "uses-sdk")
     body += elem("uses-permission", [("name", "android.permission.INTERNET")])
     body += end_element(pool, "uses-permission")
     body += elem("uses-permission", [("name", "android.permission.ACCESS_NETWORK_STATE")])
     body += end_element(pool, "uses-permission")
-    body += elem("application", [("label", label), ("allowBackup", "true"),
-                                 ("usesCleartextTraffic", "true")])
-    body += elem("activity", [("name", "com.v2dstudio.app.MainActivity"), ("exported", "true")])
+    body += elem("application", [("label", label), ("allowBackup", True),
+                                 ("usesCleartextTraffic", True), ("hasCode", True)])
+    body += elem("activity", [("name", "com.v2dstudio.app.MainActivity"), ("exported", True)])
     body += elem("intent-filter", [])
     body += elem("action", [("name", "android.intent.action.MAIN")])
     body += end_element(pool, "action")

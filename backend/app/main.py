@@ -32,10 +32,35 @@ def _validate_security() -> None:
         raise RuntimeError("Wildcard CORS is not allowed in production")
 
 
+def _ensure_owner_account() -> None:
+    """Recreate the owner account on every startup so DB resets can't lock you out."""
+    import os
+    from sqlmodel import Session, select
+    from .db import engine
+    from .auth import hash_password
+    from .models import User
+    emails = settings.owner_emails
+    if not emails:
+        return
+    email = sorted(emails)[0]
+    password = os.getenv("OWNER_PASSWORD", settings.OWNER_PASSWORD)
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if not user:
+            session.add(User(
+                email=email, full_name="Owner",
+                hashed_password=hash_password(password),
+                is_owner=True, is_active=True, plan="owner",
+            ))
+            session.commit()
+            log.info("owner_account_created", extra={"email": email})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _validate_security()
     init_db()
+    _ensure_owner_account()
     _recover_stale_jobs()
     hub.bind_loop(asyncio.get_running_loop())
     bridge = None
