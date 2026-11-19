@@ -167,7 +167,9 @@ export default function Studio({ user, plan, jobs, onJobsChange, onView }: {
                 <input type="number" min={3} max={maxSeconds} value={demoSeconds}
                        onChange={e => setDemoSeconds(Math.max(3, Math.min(maxSeconds, +e.target.value)))} />s
               </label>
-              <button className="btn ghost small" disabled={busy} onClick={() => submit(true)}><Play size={14} /> Generate sample</button>
+              <button className="btn ghost small" disabled={busy} onClick={() => { setFiles([]); submit(true) }}>
+                {busy ? <Loader2 className="spin" size={14} /> : <Play size={14} />} {busy ? 'Generating…' : 'Generate sample'}
+              </button>
             </div>
 
             {error && <div className="alert error">{error}</div>}

@@ -32,6 +32,29 @@ def _validate_security() -> None:
         raise RuntimeError("Wildcard CORS is not allowed in production")
 
 
+def _warmup() -> None:
+    """Pre-load ffmpeg/codecs and ML libs so the first user job isn't slow."""
+    import subprocess
+    from pathlib import Path
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "warm.mp4"
+            subprocess.run([
+                "ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+                "-i", "color=c=black:s=64x64:d=0.2:r=5", "-c:v", "libx264",
+                "-pix_fmt", "yuv420p", str(p),
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            subprocess.run([
+                "ffmpeg", "-y", "-loglevel", "error", "-skip_frame", "nokey",
+                "-i", str(p), "-vf", "scale=32:32", "-f", "rawvideo",
+                "-pix_fmt", "rgb24", "pipe:1",
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+        log.info("warmup_complete")
+    except Exception as exc:
+        log.warning("warmup_failed", extra={"error": str(exc)[:100]})
+
+
 def _ensure_owner_account() -> None:
     """Recreate the owner account on every startup so DB resets can't lock you out."""
     import os
@@ -56,17 +79,37 @@ def _ensure_owner_account() -> None:
             log.info("owner_account_created", extra={"email": email})
 
 
+async def _self_ping() -> None:
+    """Keep the service warm from inside — but a sleeping process can't ping itself,
+    so this only helps while awake. The external scheduler does the real work."""
+    import httpx
+    await asyncio.sleep(10)
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                await c.get("http://127.0.0.1:8000/api/health")
+        except Exception:
+            pass
+        await asyncio.sleep(240)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _validate_security()
     init_db()
     _ensure_owner_account()
     _recover_stale_jobs()
+    # Warm up in a thread so startup isn't blocked but first job is faster.
+    import threading
+    threading.Thread(target=_warmup, daemon=True).start()
     hub.bind_loop(asyncio.get_running_loop())
     bridge = None
+    pinger = None
     if settings.queue_backend == "redis":
         from .queue import bridge_progress
         bridge = asyncio.create_task(bridge_progress(hub))
+    if settings.PERSONAL_MODE:
+        pinger = asyncio.create_task(_self_ping())
     log.info("startup", extra={"environment": settings.ENVIRONMENT,
                                "queue": settings.queue_backend, "storage": settings.STORAGE_BACKEND})
     try:
@@ -74,6 +117,8 @@ async def lifespan(app: FastAPI):
     finally:
         if bridge:
             bridge.cancel()
+        if pinger:
+            pinger.cancel()
 
 
 def _recover_stale_jobs() -> None:
