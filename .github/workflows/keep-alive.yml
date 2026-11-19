@@ -1,0 +1,18 @@
+name: Keep V2D Studio Awake
+
+# Render's free web services sleep after ~15 min of inactivity.
+# Ping every 5 minutes so the app stays warm for personal use.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          echo "Pinging $(date -u +%FT%TZ)"
+          curl -fsS --retry 3 --retry-delay 5 https://v2d-studio.onrender.com/api/health
+          echo ""
