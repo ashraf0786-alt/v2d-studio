@@ -33,6 +33,6 @@ ENV PORT=8000
 VOLUME /data
 EXPOSE 8000
 
-# Bind to $PORT (Render injects it). Alembic migrations are best-effort;
-# the app also creates missing tables on startup.
-CMD ["sh", "-c", "alembic upgrade head || true; uvicorn app.main:app --host 0.0.0.0 --port \"$PORT\""]
+# Bind to $PORT (Render injects it). Tables are created by app startup
+# (init_db), which avoids SQLite lock contention during zero-downtime deploys.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port \"$PORT\""]
