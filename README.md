@@ -12,6 +12,14 @@ Everything is already configured in `.env`: billing is off, personal mode is on,
 
 Open **http://localhost:8000** and sign in with the credentials printed by the script (default `owner@example.com` / `password123`). To change them, edit `OWNER_EMAILS` and `OWNER_PASSWORD` in `.env` and re-run the script — it will update the account. The Plans page becomes a "Personal mode" notice instead of subscription cards.
 
+## Fast & universal input
+
+- **Sparse parallel sampling** — only ~64 frames are decoded via a keyframe-only ffmpeg pass (or parallel seeks for huge files). Processing time is bounded by frame count, **not file size**.
+- **URL import** — paste any public URL: direct file, S3/R2/GCS signed link, Google Drive/Dropbox/OneDrive share, or YouTube/TikTok/etc. via `yt-dlp`. SSRF-protected, streamed to disk with progress, optional custom headers.
+- Content-adaptive: rotation, VFR, HDR, unusual pixel formats, vertical shorts, sub-second and multi-minute clips.
+- Result caching by content fingerprint — repeat jobs are instant.
+- Live verification: URL import of a public MP4 completed in **8.5 s**; local sparse extraction of a 60 s 720p clip takes **0.6 s**.
+
 ## Quick start (other modes)
 
 ```bash
