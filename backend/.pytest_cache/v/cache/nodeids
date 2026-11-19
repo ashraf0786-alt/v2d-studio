@@ -1,0 +1,17 @@
+[
+  "tests/test_api.py::test_all_modes_complete[mocap]",
+  "tests/test_api.py::test_all_modes_complete[parallax]",
+  "tests/test_api.py::test_all_modes_complete[scene]",
+  "tests/test_api.py::test_api_key_and_public_api",
+  "tests/test_api.py::test_free_plan_and_owner_bypass",
+  "tests/test_api.py::test_health_and_auth",
+  "tests/test_api.py::test_length_limit_enforced",
+  "tests/test_api.py::test_parallax_exports_are_real_files",
+  "tests/test_api.py::test_verify_and_reset_flows",
+  "tests/test_processing.py::test_bvh_export",
+  "tests/test_processing.py::test_depth_range",
+  "tests/test_processing.py::test_glb_point_cloud",
+  "tests/test_processing.py::test_parallax_glb",
+  "tests/test_processing.py::test_shot_detection",
+  "tests/test_storage.py::test_s3_roundtrip"
+]

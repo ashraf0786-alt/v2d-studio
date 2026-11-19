@@ -1,0 +1,6 @@
+# Optional upgrades for quality. Install only on machines that can use them.
+# -r requirements.txt
+mediapipe>=0.10.20
+# Depth Anything V2 (GPU strongly recommended):
+# torch>=2.2
+# transformers>=4.40

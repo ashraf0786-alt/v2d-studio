@@ -1,0 +1,39 @@
+# Render.com blueprint: https://dashboard.render.com/select-repo
+# Builds the root Dockerfile and serves API + UI on one web service.
+services:
+  - type: web
+    name: v2d-studio
+    runtime: docker
+    plan: standard
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OWNER_EMAILS
+        value: owner@example.com
+      - key: CORS_ORIGINS
+        value: https://v2d-studio.onrender.com
+      - key: PUBLIC_BASE_URL
+        value: https://v2d-studio.onrender.com
+      - key: BILLING_ENABLED
+        value: "false"
+      - key: QUEUE_BACKEND
+        value: thread
+      - key: STORAGE_BACKEND
+        value: local
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_PRO
+        sync: false
+      - key: STRIPE_PRICE_STUDIO
+        sync: false
+      - key: VITE_ADSENSE_ID
+        sync: false
+      - key: VITE_AD_LINK
+        value: https://example.com/sponsor
+      - key: VITE_AD_TEXT
+        value: Supported by our sponsor

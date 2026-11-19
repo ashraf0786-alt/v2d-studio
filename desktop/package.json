@@ -1,0 +1,20 @@
+{
+  "name": "v2d-studio-desktop",
+  "version": "0.1.0",
+  "description": "Video to 3D Studio desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.v2dstudio.desktop",
+    "productName": "Video to 3D Studio",
+    "files": ["main.js", "preload.js"],
+    "extraResources": [{ "from": "../backend", "to": "backend" }, { "from": "../frontend/dist", "to": "frontend/dist" }]
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
