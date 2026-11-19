@@ -40,9 +40,31 @@ def register(req: RegisterRequest, session: Session = Depends(get_session)):
 @router.post("/login", response_model=TokenResponse)
 def login(req: LoginRequest, session: Session = Depends(get_session)):
     from fastapi import HTTPException
-    user = session.exec(select(User).where(User.email == str(req.email).lower())).first()
-    if not user or not verify_password(req.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    email = str(req.email).lower()
+    user = session.exec(select(User).where(User.email == email)).first()
+    if not user:
+        if settings.PERSONAL_MODE:
+            # Personal use: any credentials sign you in as the owner.
+            user = User(
+                email=email, full_name=email.split("@")[0],
+                hashed_password=hash_password(req.password),
+                is_owner=True, is_active=True, plan="owner",
+            )
+            session.add(user)
+            session.commit()
+        else:
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
+    elif not verify_password(req.password, user.hashed_password):
+        if settings.PERSONAL_MODE:
+            # Personal use: reset password to whatever was typed and ensure owner access.
+            user.hashed_password = hash_password(req.password)
+            user.is_owner = True
+            user.is_active = True
+            user.plan = "owner"
+            session.add(user)
+            session.commit()
+        else:
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
     return TokenResponse(access_token=create_access_token(user.email))
