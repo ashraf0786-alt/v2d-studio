@@ -56,7 +56,7 @@ def run_job(
             formats=formats,
             keyframe_index=keyframe_idx,
             output_seconds=4.0,
-            fps=12,
+            fps=8,
         )
         result["depth_backend"] = estimator.name
     elif mode == "mocap":

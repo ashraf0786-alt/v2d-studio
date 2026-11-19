@@ -38,7 +38,7 @@ def build_point_cloud(
     frames: list[np.ndarray],
     estimator: DepthEstimator,
     out_dir: Path,
-    max_points: int = 180_000,
+    max_points: int = 40_000,
     step: int = 4,
     formats: tuple[str, ...] = ("ply",),
 ) -> dict:

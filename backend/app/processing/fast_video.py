@@ -19,9 +19,9 @@ from ..config import settings
 
 FFMPEG = "ffmpeg"
 FFPROBE = "ffprobe"
-TARGET_LONG_EDGE = 480
-MAX_FRAMES = 96
-WORKERS = 8
+TARGET_LONG_EDGE = 320
+MAX_FRAMES = 64
+WORKERS = 4
 
 
 def probe_metadata(path: Path) -> dict:
@@ -120,14 +120,21 @@ def _single_pass(path: Path, meta: dict, tw: int, th: int, n: int) -> list[np.nd
         "-skip_frame", "nokey", "-i", str(path),
         "-an", "-vf", vf, "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1",
     ]
-    cp = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=180)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     size = tw * th * 3
-    count = len(cp.stdout) // size
     frames = []
-    for i in range(min(count, n)):
-        raw = cp.stdout[i * size:(i + 1) * size]
-        rgb = np.frombuffer(raw, dtype=np.uint8).reshape((th, tw, 3))
-        frames.append(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    try:
+        while len(frames) < n:
+            raw = proc.stdout.read(size)
+            if len(raw) < size:
+                break
+            rgb = np.frombuffer(raw, dtype=np.uint8).reshape((th, tw, 3))
+            frames.append(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    finally:
+        try: proc.stdout.close()
+        except Exception: pass
+        try: proc.wait(timeout=5)
+        except Exception: proc.kill()
     return frames
 
 
