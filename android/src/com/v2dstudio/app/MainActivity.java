@@ -17,6 +17,7 @@ public class MainActivity extends Activity {
     private WebView web;
     private SharedPreferences prefs;
     private static final String KEY = "server_url";
+    private static final String DEFAULT_URL = "https://v2d-studio.onrender.com";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,8 +62,8 @@ public class MainActivity extends Activity {
             public void onClick(android.view.View v) { showUrlDialog(); }
         });
         String url = prefs.getString(KEY, "");
-        if (url.isEmpty()) showUrlDialog();
-        else web.loadUrl(url);
+        if (url.isEmpty()) url = DEFAULT_URL;
+        web.loadUrl(url);
     }
 
     private void showUrlDialog() {

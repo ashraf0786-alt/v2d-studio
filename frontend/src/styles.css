@@ -141,6 +141,10 @@ a { color: inherit; }
 .dropzone svg { color: var(--accent); }
 .dropzone strong { font-size: 13px; }
 .dropzone small { color: var(--muted); font-size: 11px; }
+.url-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; flex-wrap: wrap; }
+.url-input-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 9px; padding: 0 11px; }
+.url-input-wrap svg { color: var(--accent); flex: none; }
+.url-input-wrap input { flex: 1; background: transparent; border: 0; outline: none; color: var(--text); padding: 10px 0; font-size: 12px; }
 .demo-row { display: flex; align-items: center; gap: 12px; margin: 16px 0; flex-wrap: wrap; }
 .demo-seconds { display: flex; align-items: center; gap: 7px; }
 .demo-seconds input { width: 66px; padding: 7px 9px; }

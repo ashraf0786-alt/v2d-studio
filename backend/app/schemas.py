@@ -32,6 +32,13 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+class UrlImportRequest(BaseModel):
+    url: str
+    mode: str = "parallax"
+    max_width: int = 480
+    headers: dict[str, str] = Field(default_factory=dict)
+
+
 class JobCreateResponse(BaseModel):
     id: str
     status: str

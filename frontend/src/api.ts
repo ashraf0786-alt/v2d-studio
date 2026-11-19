@@ -70,6 +70,11 @@ export const api = {
   },
   deleteJob: (id: string) => request<{ ok: boolean }>(`/jobs/${id}`, { method: 'DELETE' }),
 
+  importUrl: (url: string, mode: string, headers?: Record<string, string>) =>
+    request<{ id: string; status: string; message: string }>('/jobs/url', {
+      method: 'POST', body: JSON.stringify({ url, mode, headers: headers || {} }),
+    }),
+
   batch: (files: File[], mode: string, maxWidth: number) => {
     const fd = new FormData()
     files.forEach(f => fd.append('files', f))

@@ -76,9 +76,58 @@ def execute(job_id: str, user_id: int, mode: str, input_path: Path, params: dict
             _emit(job_id, "failed", job.progress, job.message)
 
 
+def execute_url(job_id: str, user_id: int, mode: str, url: str, headers: dict, params: dict) -> None:
+    """Download from URL with progress, then run the normal pipeline."""
+    from .url_import import UrlImportError, fetch_url
+    from .storage import job_dir
+    import traceback
+
+    def dl_progress(pct: int, msg: str) -> None:
+        _emit(job_id, "running", pct, msg)
+        with Session(engine) as s:
+            j = s.exec(select(Job).where(Job.id == job_id)).first()
+            if j:
+                j.progress = pct
+                j.message = msg
+                s.add(j)
+                s.commit()
+
+    try:
+        dest = job_dir(user_id, job_id) / "input_url"
+        path, source = fetch_url(url, dest, headers, dl_progress)
+        with Session(engine) as s:
+            j = s.exec(select(Job).where(Job.id == job_id)).first()
+            if j:
+                j.input_filename = f"URL import ({source})"
+                s.add(j)
+                s.commit()
+        _emit(job_id, "running", 20, "Download complete — sampling video…")
+        execute(job_id, user_id, mode, path, params)
+    except Exception as exc:
+        traceback.print_exc()
+        with Session(engine) as s:
+            j = s.exec(select(Job).where(Job.id == job_id)).first()
+            if j:
+                j.status = "failed"
+                j.error = f"URL import: {exc}"[:1000]
+                j.message = "Failed"
+                s.add(j)
+                s.commit()
+        _emit(job_id, "failed", 0, "URL import failed")
+
+
 class JobManager:
     def __init__(self) -> None:
         self.pool = ThreadPoolExecutor(max_workers=settings.MAX_WORKERS, thread_name_prefix="job")
+
+    def submit_url(self, job_id: str, user_id: int, mode: str, url: str,
+                   headers: dict, params: dict) -> None:
+        if settings.queue_backend == "redis":
+            from .queue import enqueue_url
+            enqueue_url(job_id, user_id, mode, url, headers, params,
+                        priority=params.get("priority", 0))
+        else:
+            self.pool.submit(execute_url, job_id, user_id, mode, url, headers, params)
 
     def submit(self, job_id: str, user_id: int, mode: str, input_path: Path, params: dict) -> None:
         if settings.queue_backend == "redis":

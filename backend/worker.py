@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from app.config import settings
-from app.jobs import execute
+from app.jobs import execute, execute_url
 from app.queue import PRIORITIES, get_redis
 from app.storage import get_local_path
 
@@ -28,6 +28,11 @@ def main() -> None:
                 continue
             payload = json.loads(item[1])
             try:
+                if payload.get("kind") == "url":
+                    execute_url(payload["job_id"], payload["user_id"], payload["mode"],
+                                payload["url"], payload.get("headers", {}), payload["params"])
+                    did_work = True
+                    break
                 input_path = Path(payload["input_path"])
                 if not input_path.exists():
                     fetched = get_local_path(payload["user_id"], payload["job_id"],

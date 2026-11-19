@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, wsUrl } from '../api'
 import type { Job, Mode, PlanInfo, User } from '../types'
-import { UploadCloud, Play, Loader2, Image as ImageIcon, PersonStanding, Box, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
+import { UploadCloud, Play, Loader2, Image as ImageIcon, PersonStanding, Box, CheckCircle2, AlertCircle, Clock, Link2 } from 'lucide-react'
 import AdSlot from './AdSlot'
 
 const MODES: { id: Mode; title: string; desc: string; icon: typeof ImageIcon; minPlan: string }[] = [
@@ -16,6 +16,7 @@ export default function Studio({ user, plan, jobs, onJobsChange, onView }: {
 }) {
   const [mode, setMode] = useState<Mode>('parallax')
   const [files, setFiles] = useState<File[]>([])
+  const [url, setUrl] = useState('')
   const [demoSeconds, setDemoSeconds] = useState(8)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -60,6 +61,18 @@ export default function Studio({ user, plan, jobs, onJobsChange, onView }: {
     socketRef.current?.close()
     if (pollRef.current) clearInterval(pollRef.current)
   }, [])
+
+  async function submitUrl() {
+    if (!url.trim()) { setError('Enter a video URL first.'); return }
+    setError(''); setBusy(true); setLive({ progress: 1, message: 'Fetching URL…', status: 'queued' })
+    try {
+      const res = await api.importUrl(url.trim(), mode)
+      setActive(null)
+      watchJob(res.id)
+    } catch (e: any) {
+      setError(e.message); setBusy(false); setLive(null)
+    }
+  }
 
   async function submit(useDemo: boolean) {
     setError(''); setBusy(true); setLive({ progress: 1, message: 'Submitting…', status: 'queued' })
@@ -136,6 +149,17 @@ export default function Studio({ user, plan, jobs, onJobsChange, onView }: {
                 ? `${(files.reduce((n, f) => n + f.size, 0) / 1024 / 1024).toFixed(1)} MB total · batch mode`
                 : `MP4, MOV, WebM · up to ${maxSeconds}s on your plan`}</small>
             </label>
+
+            <div className="url-row">
+              <div className="url-input-wrap">
+                <Link2 size={16} />
+                <input value={url} onChange={e => setUrl(e.target.value)}
+                       placeholder="Paste any video URL — direct link, Drive/Dropbox, YouTube, TikTok…"
+                       onKeyDown={e => { if (e.key === 'Enter') submitUrl() }} />
+              </div>
+              <button className="btn ghost small" disabled={busy} onClick={submitUrl}><Link2 size={14} /> Import URL</button>
+            </div>
+            <p className="hint">Direct files, signed links, cloud shares and video platforms are supported. Large files are fetched with byte-range requests.</p>
 
             <div className="demo-row">
               <span className="muted small">No video handy?</span>

@@ -12,7 +12,7 @@ from ..entitlements import can_batch, check_access, is_owner, limits_for
 from ..jobs import manager
 from ..models import Job, User
 from ..processing.video import make_sample_video, probe_duration, probe_resolution
-from ..schemas import JobCreateResponse, JobResponse
+from ..schemas import JobCreateResponse, JobResponse, UrlImportRequest
 from ..storage import artifact_url, job_dir, new_job_id, save_upload
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
@@ -104,6 +104,42 @@ async def upload_job(
         raise HTTPException(status_code=413, detail="File too large (max 500 MB)")
     job = _create_job(session, user, data, file.filename or "video.mp4", mode, max_width)
     return JobCreateResponse(id=job.id, status=job.status, message=job.message)
+
+
+@router.post("/url", response_model=JobCreateResponse)
+def import_url(req: UrlImportRequest,
+               user: User = Depends(get_current_user),
+               session: Session = Depends(get_session)):
+    """Import a video from any public URL (direct, signed, share link, or platform)."""
+    from ..url_import import UrlImportError, _validate_url, url_fingerprint
+    lim = limits_for(user)
+    if req.mode not in lim.modes:
+        raise HTTPException(status_code=403, detail=f"Mode '{req.mode}' requires an upgrade")
+    try:
+        _validate_url(req.url)
+    except UrlImportError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if len(req.url) > 2048:
+        raise HTTPException(status_code=400, detail="URL too long")
+
+    job_id = new_job_id()
+    params = {
+        "max_width": min(req.max_width, lim.max_resolution),
+        "watermark": lim.watermark,
+        "priority": lim.priority,
+        "exports": list(lim.exports),
+        "source_url": req.url,
+        "source_fingerprint": url_fingerprint(req.url, req.headers),
+    }
+    job = Job(
+        id=job_id, owner_id=user.id, mode=req.mode, status="queued",
+        message="Fetching URL…", input_filename=req.url[:200],
+        duration_seconds=0.0, parameters_json=json.dumps(params),
+    )
+    session.add(job)
+    session.commit()
+    manager.submit_url(job_id, user.id, req.mode, req.url, req.headers, params)
+    return JobCreateResponse(id=job_id, status=job.status, message=job.message)
 
 
 @router.post("/batch")

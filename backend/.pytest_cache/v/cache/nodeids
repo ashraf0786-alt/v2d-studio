@@ -13,5 +13,10 @@
   "tests/test_processing.py::test_glb_point_cloud",
   "tests/test_processing.py::test_parallax_glb",
   "tests/test_processing.py::test_shot_detection",
-  "tests/test_storage.py::test_s3_roundtrip"
+  "tests/test_storage.py::test_s3_roundtrip",
+  "tests/test_url_import.py::test_direct_url_import",
+  "tests/test_url_import.py::test_probe_metadata",
+  "tests/test_url_import.py::test_sparse_extract",
+  "tests/test_url_import.py::test_ssrf_blocked",
+  "tests/test_url_import.py::test_url_endpoint"
 ]

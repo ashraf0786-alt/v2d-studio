@@ -29,6 +29,16 @@ def enqueue(job_id: str, user_id: int, mode: str, input_path: Path, params: dict
     get_redis().lpush(f"v2d:jobs:{priority}", payload)
 
 
+def enqueue_url(job_id: str, user_id: int, mode: str, url: str, headers: dict,
+                params: dict, priority: int = 0) -> None:  # pragma: no cover
+    priority = int(priority) if int(priority) in PRIORITIES else 0
+    payload = json.dumps({
+        "job_id": job_id, "user_id": user_id, "mode": mode,
+        "url": url, "headers": headers, "params": params, "kind": "url",
+    })
+    get_redis().lpush(f"v2d:jobs:{priority}", payload)
+
+
 def publish(event: dict) -> None:  # pragma: no cover
     get_redis().publish("v2d:progress", json.dumps(event))
 
